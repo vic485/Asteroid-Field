@@ -6,11 +6,21 @@
 #define ERASE 0
 #define DRAW 1
 
+#define X_COMP 0
+#define Y_COMP 1
+#define N_COMP 2
+
 // The structure for a vertex
 typedef struct vertex_typ
 {
-    float x, y;
+    float p[3];
 } vertex, *vertex_ptr;
+
+// Matrix structure
+typedef struct matrix_typ
+{
+    float elem[3][3];
+} matrix, *matrix_ptr;
 
 // The structure for an object
 typedef struct object_typ
@@ -19,8 +29,8 @@ typedef struct object_typ
     int color;
     float x_pos, y_pos;
     float x_vel, y_vel;
-    float scale;
-    float angle;
+    matrix scale;
+    matrix rotation;
     vertex vertices[16];
 } object, *object_ptr;
 
@@ -35,42 +45,60 @@ void Delay(int t)
         x = cos(x);
 }
 
-void Scale_Object(object_ptr object, float scale)
+void Make_Identity(matrix_ptr m)
+{
+    // Turn into identity matrix
+    m->elem[0][0] = m->elem[1][1] = m->elem[2][2] = 1;
+    m->elem[0][1] = m->elem[1][0] = m->elem[1][2] = 0;
+    m->elem[0][2] = m->elem[2][1] = m->elem[2][0] = 0;
+}
+
+void Clear_Matrix(matrix_ptr m)
+{
+    // Zero out matrix
+    m->elem[0][0] = m->elem[1][1] = m->elem[2][2] = 0;
+    m->elem[0][1] = m->elem[1][0] = m->elem[1][2] = 0;
+    m->elem[0][2] = m->elem[2][1] = m->elem[2][0] = 0;
+}
+
+void Multiply_Matrix(vertex_ptr v, matrix_ptr m)
+{
+    float x_new, y_new;
+
+    // Do multiplication of a 1x3 * 3x3
+    x_new = v->p[0] * m->elem[0][0] + v->p[1] * m->elem[1][0] + m->elem[2][0];
+    y_new = v->p[0] * m->elem[0][1] + v->p[1] * m->elem[1][1] + m->elem[2][1];
+
+    v->p[X_COMP] = x_new;
+    v->p[Y_COMP] = y_new;
+}
+
+void Scale_Object(object_ptr object)
 {
     int i;
 
     // Scale x and y on all vertices
     for (i = 0; i < object->num_vertices; i++)
     {
-        object->vertices[i].x *= scale;
-        object->vertices[i].y *= scale;
+        Multiply_Matrix((vertex_ptr)&object->vertices[i], (matrix_ptr)&object->scale);
     }
 }
 
-void Rotate_Object(object_ptr object, float angle)
+void Rotate_Object(object_ptr object)
 {
     int i;
-    float x_new, y_new, cs, sn;
-
-    // Precompute sin and cos
-    cs = cos(angle);
-    sn = sin(angle);
 
     // Rotate each vertex by angle
     for (i = 0; i < object->num_vertices; i++)
     {
-        x_new = object->vertices[i].x * cs - object->vertices[i].y * sn;
-        y_new = object->vertices[i].y * cs + object->vertices[i].x * sn;
-
-        // Return data to struct
-        object->vertices[i].x = x_new;
-        object->vertices[i].y = y_new;
+        Multiply_Matrix((vertex_ptr)&object->vertices[i], (matrix_ptr)&object->rotation);
     }
 }
 
 void Create_Field(void)
 {
     int i;
+    float angle, c, s;
 
     for (i = 0; i < NUM_ASTEROIDS; i++)
     {
@@ -78,26 +106,51 @@ void Create_Field(void)
         asteroids[i].color = 1 + rand() % 14; // Keep always visible
         asteroids[i].x_pos = 41 + rand() % 599;
         asteroids[i].y_pos = 41 + rand() % 439;
-
         asteroids[i].x_vel = -10 + rand() % 20;
         asteroids[i].y_vel = -10 + rand() % 20;
-        asteroids[i].scale = (float)(rand() % 30) / 10;
-        asteroids[i].angle = (float)(-50 + (float)(rand() % 100)) / 100;
+        
+        // Setup rotation
+        Make_Identity((matrix_ptr)&asteroids[i].rotation);
 
-        asteroids[i].vertices[0].x = 4.0;
-        asteroids[i].vertices[0].y = 3.5;
-        asteroids[i].vertices[1].x = 8.5;
-        asteroids[i].vertices[1].y = -3.0;
-        asteroids[i].vertices[2].x = 6;
-        asteroids[i].vertices[2].y = -5;
-        asteroids[i].vertices[3].x = 2;
-        asteroids[i].vertices[3].y = -3;
-        asteroids[i].vertices[4].x = -4;
-        asteroids[i].vertices[4].y = -6;
-        asteroids[i].vertices[5].x = -3.5;
-        asteroids[i].vertices[5].y = 5.5;
+        angle = (float)(-50 + (float)(rand() % 100)) / 100;
+        c = cos(angle);
+        s = sin(angle);
 
-        Scale_Object((object_ptr)&asteroids[i], asteroids[i].scale);
+        asteroids[i].rotation.elem[0][0] = c;
+        asteroids[i].rotation.elem[0][1] = -s;
+        asteroids[i].rotation.elem[1][0] = s;
+        asteroids[i].rotation.elem[1][1] = c;
+
+        // Setup scaling
+        Make_Identity((matrix_ptr)&asteroids[i].scale);
+        asteroids[i].scale.elem[0][0] = (float)(rand() % 30) / 10;
+        asteroids[i].scale.elem[1][1] = asteroids[i].scale.elem[0][0];
+
+        asteroids[i].vertices[0].p[X_COMP] = 4.0;
+        asteroids[i].vertices[0].p[Y_COMP] = 3.5;
+        asteroids[i].vertices[0].p[N_COMP] = 1;
+
+        asteroids[i].vertices[1].p[X_COMP] = 8.5;
+        asteroids[i].vertices[1].p[Y_COMP] = -3.0;
+        asteroids[i].vertices[1].p[N_COMP] = 1;
+
+        asteroids[i].vertices[2].p[X_COMP] = 6;
+        asteroids[i].vertices[2].p[Y_COMP] = -5;
+        asteroids[i].vertices[2].p[N_COMP] = 1;
+
+        asteroids[i].vertices[3].p[X_COMP] = 2;
+        asteroids[i].vertices[3].p[Y_COMP] = -3;
+        asteroids[i].vertices[3].p[N_COMP] = 1;
+
+        asteroids[i].vertices[4].p[X_COMP] = -4;
+        asteroids[i].vertices[4].p[Y_COMP] = -6;
+        asteroids[i].vertices[4].p[N_COMP] = 1;
+
+        asteroids[i].vertices[5].p[X_COMP] = -3.5;
+        asteroids[i].vertices[5].p[Y_COMP] = 5.5;
+        asteroids[i].vertices[5].p[N_COMP] = 1;
+
+        Scale_Object((object_ptr)&asteroids[i]);
     }
 }
 
@@ -118,14 +171,14 @@ void Draw_Asteroids(int erase)
         yo = asteroids[i].y_pos;
 
         // Move to first vertex
-        _moveto((int)(xo + asteroids[i].vertices[0].x), (int)(yo + asteroids[i].vertices[0].y));
+        _moveto((int)(xo + asteroids[i].vertices[0].p[X_COMP]), (int)(yo + asteroids[i].vertices[0].p[Y_COMP]));
 
         for (v = 1; v < asteroids[i].num_vertices; v++)
         {
-            _lineto((int)(xo + asteroids[i].vertices[v].x), (int)(yo + asteroids[i].vertices[v].y));
+            _lineto((int)(xo + asteroids[i].vertices[v].p[X_COMP]), (int)(yo + asteroids[i].vertices[v].p[Y_COMP]));
         }
 
-        _lineto((int)(xo + asteroids[i].vertices[0].x), (int)(yo + asteroids[i].vertices[0].y));
+        _lineto((int)(xo + asteroids[i].vertices[0].p[X_COMP]), (int)(yo + asteroids[i].vertices[0].p[Y_COMP]));
     }
 }
 
@@ -159,7 +212,7 @@ void Rotate_Asteroids(void)
 
     for (i = 0; i < NUM_ASTEROIDS; i++)
     {
-        Rotate_Object((object_ptr)&asteroids[i], asteroids[i].angle);
+        Rotate_Object((object_ptr)&asteroids[i]);
     }
 }
 
