@@ -20,6 +20,7 @@ typedef struct object_typ
     float x_pos, y_pos;
     float x_vel, y_vel;
     float scale;
+    float angle;
     vertex vertices[16];
 } object, *object_ptr;
 
@@ -46,6 +47,27 @@ void Scale_Object(object_ptr object, float scale)
     }
 }
 
+void Rotate_Object(object_ptr object, float angle)
+{
+    int i;
+    float x_new, y_new, cs, sn;
+
+    // Precompute sin and cos
+    cs = cos(angle);
+    sn = sin(angle);
+
+    // Rotate each vertex by angle
+    for (i = 0; i < object->num_vertices; i++)
+    {
+        x_new = object->vertices[i].x * cs - object->vertices[i].y * sn;
+        y_new = object->vertices[i].y * cs + object->vertices[i].x * sn;
+
+        // Return data to struct
+        object->vertices[i].x = x_new;
+        object->vertices[i].y = y_new;
+    }
+}
+
 void Create_Field(void)
 {
     int i;
@@ -60,6 +82,7 @@ void Create_Field(void)
         asteroids[i].x_vel = -10 + rand() % 20;
         asteroids[i].y_vel = -10 + rand() % 20;
         asteroids[i].scale = (float)(rand() % 30) / 10;
+        asteroids[i].angle = (float)(-50 + (float)(rand() % 100)) / 100;
 
         asteroids[i].vertices[0].x = 4.0;
         asteroids[i].vertices[0].y = 3.5;
@@ -130,6 +153,16 @@ void Translate_Asteroids()
     }
 }
 
+void Rotate_Asteroids(void)
+{
+    int i;
+
+    for (i = 0; i < NUM_ASTEROIDS; i++)
+    {
+        Rotate_Object((object_ptr)&asteroids[i], asteroids[i].angle);
+    }
+}
+
 void main(void)
 {
     _setvideomode(_VRES16COLOR); // 640x480 16 colors
@@ -140,6 +173,7 @@ void main(void)
     {
         Draw_Asteroids(ERASE);
 
+        Rotate_Asteroids();
         Translate_Asteroids();
 
         Draw_Asteroids(DRAW);
