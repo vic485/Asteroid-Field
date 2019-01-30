@@ -19,6 +19,7 @@ typedef struct object_typ
     int color;
     float x_pos, y_pos;
     float x_vel, y_vel;
+    float scale;
     vertex vertices[16];
 } object, *object_ptr;
 
@@ -33,6 +34,18 @@ void Delay(int t)
         x = cos(x);
 }
 
+void Scale_Object(object_ptr object, float scale)
+{
+    int i;
+
+    // Scale x and y on all vertices
+    for (i = 0; i < object->num_vertices; i++)
+    {
+        object->vertices[i].x *= scale;
+        object->vertices[i].y *= scale;
+    }
+}
+
 void Create_Field(void)
 {
     int i;
@@ -43,8 +56,10 @@ void Create_Field(void)
         asteroids[i].color = 1 + rand() % 14; // Keep always visible
         asteroids[i].x_pos = 41 + rand() % 599;
         asteroids[i].y_pos = 41 + rand() % 439;
+
         asteroids[i].x_vel = -10 + rand() % 20;
         asteroids[i].y_vel = -10 + rand() % 20;
+        asteroids[i].scale = (float)(rand() % 30) / 10;
 
         asteroids[i].vertices[0].x = 4.0;
         asteroids[i].vertices[0].y = 3.5;
@@ -58,6 +73,8 @@ void Create_Field(void)
         asteroids[i].vertices[4].y = -6;
         asteroids[i].vertices[5].x = -3.5;
         asteroids[i].vertices[5].y = 5.5;
+
+        Scale_Object((object_ptr)&asteroids[i], asteroids[i].scale);
     }
 }
 
@@ -89,6 +106,30 @@ void Draw_Asteroids(int erase)
     }
 }
 
+void Translate_Asteroids()
+{
+    int i;
+
+    for (i = 0; i < NUM_ASTEROIDS; i++)
+    {
+        asteroids[i].x_pos += asteroids[i].x_vel;
+        asteroids[i].y_pos += asteroids[i].y_vel;
+
+        // Collide with screen boundaries
+        if (asteroids[i].x_pos > 600 || asteroids[i].x_pos < 40)
+        {
+            asteroids[i].x_vel = -asteroids[i].x_vel;
+            asteroids[i].x_pos += asteroids[i].x_vel;
+        }
+
+        if (asteroids[i].y_pos > 440 || asteroids[i].y_pos < 40)
+        {
+            asteroids[i].y_vel = -asteroids[i].y_vel;
+            asteroids[i].y_pos += asteroids[i].y_vel;
+        }
+    }
+}
+
 void main(void)
 {
     _setvideomode(_VRES16COLOR); // 640x480 16 colors
@@ -98,6 +139,8 @@ void main(void)
     while(!kbhit())
     {
         Draw_Asteroids(ERASE);
+
+        Translate_Asteroids();
 
         Draw_Asteroids(DRAW);
 
